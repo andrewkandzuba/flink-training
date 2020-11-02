@@ -18,6 +18,8 @@
 
 package org.apache.flink.training.exercises.ridesandfares;
 
+import org.apache.flink.api.common.state.ValueState;
+import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -28,7 +30,6 @@ import org.apache.flink.training.exercises.common.datatypes.TaxiRide;
 import org.apache.flink.training.exercises.common.sources.TaxiFareGenerator;
 import org.apache.flink.training.exercises.common.sources.TaxiRideGenerator;
 import org.apache.flink.training.exercises.common.utils.ExerciseBase;
-import org.apache.flink.training.exercises.common.utils.MissingSolutionException;
 import org.apache.flink.util.Collector;
 
 /**
@@ -70,17 +71,31 @@ public class RidesAndFaresExercise extends ExerciseBase {
 
 	public static class EnrichmentFunction extends RichCoFlatMapFunction<TaxiRide, TaxiFare, Tuple2<TaxiRide, TaxiFare>> {
 
+		private transient ValueState<TaxiRide> taxiRideValueState;
+		private transient ValueState<TaxiFare> taxiFareValueState;
+
 		@Override
 		public void open(Configuration config) throws Exception {
-			throw new MissingSolutionException();
+			this.taxiRideValueState = getRuntimeContext().getState(new ValueStateDescriptor<TaxiRide>("taxiRideValueState", TaxiRide.class));
+			this.taxiFareValueState = getRuntimeContext().getState(new ValueStateDescriptor<TaxiFare>("taxiFareValueState", TaxiFare.class));
 		}
 
 		@Override
 		public void flatMap1(TaxiRide ride, Collector<Tuple2<TaxiRide, TaxiFare>> out) throws Exception {
+			if(ride.isStart) {
+				taxiRideValueState.update(ride);
+			}
+			if(taxiFareValueState.value() != null){
+				out.collect(Tuple2.of(ride, taxiFareValueState.value()));
+			}
 		}
 
 		@Override
 		public void flatMap2(TaxiFare fare, Collector<Tuple2<TaxiRide, TaxiFare>> out) throws Exception {
+			taxiFareValueState.update(fare);
+			if(taxiRideValueState.value() != null){
+				out.collect(Tuple2.of(taxiRideValueState.value(), fare));
+			}
 		}
 	}
 }
