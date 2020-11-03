@@ -82,19 +82,23 @@ public class RidesAndFaresExercise extends ExerciseBase {
 
 		@Override
 		public void flatMap1(TaxiRide ride, Collector<Tuple2<TaxiRide, TaxiFare>> out) throws Exception {
-			if(ride.isStart) {
+			TaxiFare taxiFare = taxiFareValueState.value();
+			if(taxiFare != null) {
+				out.collect(Tuple2.of(ride, taxiFare));
+				taxiFareValueState.clear();
+			} else {
 				taxiRideValueState.update(ride);
-			}
-			if(taxiFareValueState.value() != null){
-				out.collect(Tuple2.of(ride, taxiFareValueState.value()));
 			}
 		}
 
 		@Override
 		public void flatMap2(TaxiFare fare, Collector<Tuple2<TaxiRide, TaxiFare>> out) throws Exception {
-			taxiFareValueState.update(fare);
-			if(taxiRideValueState.value() != null){
-				out.collect(Tuple2.of(taxiRideValueState.value(), fare));
+			TaxiRide taxiRide = taxiRideValueState.value();
+			if(taxiRide != null) {
+				out.collect(Tuple2.of(taxiRide, fare));
+				taxiRideValueState.clear();
+			} else {
+				taxiFareValueState.update(fare);
 			}
 		}
 	}
